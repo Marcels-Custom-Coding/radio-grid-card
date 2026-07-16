@@ -1,0 +1,6 @@
+{
+  "name": "RadioGrid Card",
+  "render_readme": true,
+  "filename": "radiogrid-card.js",
+  "homeassistant": "2023.9.0"
+}
