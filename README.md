@@ -13,6 +13,12 @@ Zwei Karten:
 Abgespielt wird über `music_assistant.play_media` – funktioniert damit auch auf
 **Sync-Gruppen** (AirPlay-Multiroom).
 
+## Screenshots
+
+| Anzeige-Karte | Verwaltung |
+| --- | --- |
+| ![Anzeige-Karte mit Sender-Kacheln und Player](images/card.png) | ![Verwaltung: Sender suchen und Karten zuordnen](images/config.png) |
+
 ## Voraussetzungen
 
 - [Music Assistant](https://www.music-assistant.io/) mit Home-Assistant-Integration
