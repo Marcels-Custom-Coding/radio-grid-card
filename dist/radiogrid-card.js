@@ -1,5 +1,5 @@
 /**
- * RadioGrid Card – Web-Radio für Music Assistant
+ * Radio Grid Card for Music Assistant
  * Zwei Lovelace-Karten, kein Build-Step, kein Backend:
  *
  *   custom:radiogrid-card         – Anzeige/Player (pro Raum eine Karte)
@@ -677,16 +677,16 @@ window.customCards = window.customCards || [];
 window.customCards.push(
   {
     type: 'radiogrid-card',
-    name: 'RadioGrid Card',
+    name: 'Radio Grid Card',
     description: 'Web-Radio-Kacheln mit Player für Music Assistant',
     preview: false,
-    documentationURL: 'https://github.com/marcelbrumme/radiogrid-card',
+    documentationURL: 'https://github.com/Marcels-Custom-Coding/radio-grid-card',
   },
   {
     type: 'radiogrid-config-card',
-    name: 'RadioGrid Verwaltung',
+    name: 'Radio Grid – Verwaltung',
     description: 'Sender suchen, anlegen und Karten zuordnen',
     preview: false,
-    documentationURL: 'https://github.com/marcelbrumme/radiogrid-card',
+    documentationURL: 'https://github.com/Marcels-Custom-Coding/radio-grid-card',
   }
 );

@@ -1,4 +1,4 @@
-# RadioGrid Card
+# Radio Grid Card for Music Assistant
 
 Web-Radio für **Music Assistant** in Home Assistant – mit zentraler Senderverwaltung und
 Sender-Suche über [Radio Browser](https://www.radio-browser.info/). Kein Backend, kein Build-Step.
