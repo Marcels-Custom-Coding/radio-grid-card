@@ -9,7 +9,7 @@
  * (frontend/get_user_data / set_user_data) – alle Karten lesen daraus.
  */
 
-const RADIOGRID_VERSION = '2.1.0';
+const RADIOGRID_VERSION = '2.1.1';
 console.info(
   `%c RADIOGRID-CARD %c v${RADIOGRID_VERSION} `,
   'color:#fff;background:#ff1adf;font-weight:700;border-radius:3px 0 0 3px',
