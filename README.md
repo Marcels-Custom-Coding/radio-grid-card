@@ -28,7 +28,7 @@ Abgespielt wird über `music_assistant.play_media` – funktioniert damit auch a
 
 ### HACS
 
-1. HACS → **Frontend** → ⋮ → **Benutzerdefinierte Repositories** → URL eintragen, Kategorie **Dashboard**
+1. HACS → **Frontend** → ⋮ → **Benutzerdefinierte Repositories** → URL (https://github.com/Marcels-Custom-Coding/radio-grid-card) eintragen, Kategorie **Dashboard**
 2. „RadioGrid Card" installieren
 3. Hard-Reload (Strg/Cmd + Shift + R)
 
