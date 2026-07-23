@@ -5,11 +5,12 @@
  *   custom:radiogrid-card         – Anzeige/Player (pro Raum eine Karte)
  *   custom:radiogrid-config-card  – Verwaltung: Sender suchen, anlegen, Karten zuordnen
  *
- * Der Sender-Pool liegt zentral im Frontend-User-Storage von Home Assistant
- * (frontend/get_user_data / set_user_data) – alle Karten lesen daraus.
+ * Der Sender-Pool liegt zentral in Home Assistant. Ist die optionale
+ * Integration "radiogrid" installiert, liegt er serverseitig und ist für ALLE
+ * Benutzer gleich; sonst im Frontend-User-Storage (pro Benutzer getrennt).
  */
 
-const RADIOGRID_VERSION = '2.1.1';
+const RADIOGRID_VERSION = '2.2.0';
 console.info(
   `%c RADIOGRID-CARD %c v${RADIOGRID_VERSION} `,
   'color:#fff;background:#ff1adf;font-weight:700;border-radius:3px 0 0 3px',
@@ -31,16 +32,46 @@ const slug = s => String(s || '').toLowerCase().trim()
   .replace(/[äöüß]/g, m => ({ 'ä': 'ae', 'ö': 'oe', 'ü': 'ue', 'ß': 'ss' }[m]))
   .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'karte';
 
-async function storeLoad(hass) {
+/* Speicher-Backend: mit der optionalen Integration "radiogrid" liegt der Pool
+   serverseitig und ist für ALLE HA-Benutzer gleich. Ohne die Integration wird
+   der bisherige (pro Benutzer getrennte) Frontend-User-Storage genutzt.
+   Erkennung einmalig, Ergebnis gecacht. */
+let _rgBackend = null; // null = noch nicht geprüft, 'shared' | 'user'
+async function storeBackend(hass) {
+  if (_rgBackend) return _rgBackend;
   try {
-    const r = await hass.callWS({ type: 'frontend/get_user_data', key: STORE_KEY });
-    const v = r && r.value;
+    await hass.callWS({ type: 'radiogrid/get' });
+    _rgBackend = 'shared';
+    console.info('[radiogrid] Speicher: geteilt (Integration erkannt)');
+  } catch (e) {
+    _rgBackend = 'user';
+    console.info('[radiogrid] Speicher: pro Benutzer (Integration nicht installiert)');
+  }
+  return _rgBackend;
+}
+
+async function storeLoad(hass) {
+  const be = await storeBackend(hass);
+  try {
+    let v;
+    if (be === 'shared') {
+      const r = await hass.callWS({ type: 'radiogrid/get' });
+      v = r && r.data;
+    } else {
+      const r = await hass.callWS({ type: 'frontend/get_user_data', key: STORE_KEY });
+      v = r && r.value;
+    }
     if (v && Array.isArray(v.stations)) return { ...emptyStore(), ...v };
   } catch (e) { console.warn('[radiogrid] Store konnte nicht geladen werden', e); }
   return emptyStore();
 }
 async function storeSave(hass, data) {
-  await hass.callWS({ type: 'frontend/set_user_data', key: STORE_KEY, value: data });
+  const be = await storeBackend(hass);
+  if (be === 'shared') {
+    await hass.callWS({ type: 'radiogrid/set', data });
+  } else {
+    await hass.callWS({ type: 'frontend/set_user_data', key: STORE_KEY, value: data });
+  }
   window.dispatchEvent(new CustomEvent(STORE_EVT, { detail: data }));
 }
 

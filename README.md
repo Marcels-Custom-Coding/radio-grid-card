@@ -69,13 +69,20 @@ title: Küche
 
 ## Wo werden die Sender gespeichert?
 
-Im **Frontend-User-Storage** von Home Assistant (`frontend/set_user_data`) – serverseitig,
-überlebt Neustarts, kein zusätzliches Backend nötig.
+Standardmäßig im **Frontend-User-Storage** von Home Assistant (`frontend/set_user_data`) –
+serverseitig, überlebt Neustarts, kein zusätzliches Backend nötig.
 
-> **Wichtig:** Dieser Speicher ist **pro Home-Assistant-Benutzer**. Legt ein zweiter Benutzer
-> Karten/Sender an, sieht er seine eigene Liste. Für Haushalte mit einem Admin-Konto ist das
-> unproblematisch; wer eine für alle Benutzer gemeinsame Liste braucht, benötigt eine
-> Integration mit eigenem Backend.
+> **Hinweis:** Dieser Speicher ist **pro Home-Assistant-Benutzer**. Legt ein zweiter Benutzer
+> Karten/Sender an, sieht er seine eigene Liste.
+
+### Gemeinsamer Speicher für alle Benutzer (optional)
+
+Wer möchte, dass **alle Benutzer denselben Sender-Pool** sehen, installiert zusätzlich die
+kleine Integration
+**[Radio Grid (shared storage)](https://github.com/Marcels-Custom-Coding/radiogrid-integration)**
+(HACS → Integrationen). Die Karte erkennt sie **automatisch** und legt den Pool dann
+serverseitig für alle gemeinsam ab. Ohne die Integration bleibt der Per-User-Fallback aktiv –
+die Karte funktioniert also eigenständig weiter.
 
 Andere Geräte/Tabs übernehmen Änderungen beim nächsten Neuladen (es gibt keinen Live-Push).
 
