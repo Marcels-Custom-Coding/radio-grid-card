@@ -10,7 +10,7 @@
  * Benutzer gleich; sonst im Frontend-User-Storage (pro Benutzer getrennt).
  */
 
-const RADIOGRID_VERSION = '2.2.0';
+const RADIOGRID_VERSION = '2.2.1';
 console.info(
   `%c RADIOGRID-CARD %c v${RADIOGRID_VERSION} `,
   'color:#fff;background:#ff1adf;font-weight:700;border-radius:3px 0 0 3px',
@@ -20,10 +20,12 @@ console.info(
 const ALL = 'Alle';
 const STORE_KEY = 'radiogrid';
 const STORE_EVT = 'radiogrid-store-changed';
+// all.api… ist der offizielle Round-Robin-Einstieg und zeigt stets auf einen
+// gesunden Mirror; de1/de2 als explizite Fallbacks. (nl1 wurde abgeschaltet.)
 const RB_SERVERS = [
+  'https://all.api.radio-browser.info',
   'https://de1.api.radio-browser.info',
   'https://de2.api.radio-browser.info',
-  'https://nl1.api.radio-browser.info',
 ];
 
 const emptyStore = () => ({ version: 1, cards: [], stations: [] });
@@ -573,12 +575,20 @@ class RadioGridConfigCard extends HTMLElement {
     const box = this.shadowRoot.getElementById('results');
     if (q.length < 2) { box.innerHTML = '<div class="msg">Bitte mindestens 2 Zeichen.</div>'; return; }
     box.innerHTML = '<div class="msg">Suche läuft…</div>';
+    // Kein eigener User-Agent-Header: den strippt der Browser ohnehin und er
+    // könnte einen unnötigen CORS-Preflight auslösen. Pro Server ein Timeout,
+    // damit ein hängender Mirror die ganze Suche nicht blockiert.
     const path = `/json/stations/byname/${encodeURIComponent(q)}?limit=30&hidebroken=true&order=clickcount&reverse=true`;
     for (const srv of RB_SERVERS) {
       try {
-        const res = await fetch(srv + path, { headers: { 'User-Agent': 'RadioGridCard/2.0' } });
+        const ac = new AbortController();
+        const to = setTimeout(() => ac.abort(), 7000);
+        let res, list;
+        try {
+          res = await fetch(srv + path, { signal: ac.signal });
+        } finally { clearTimeout(to); }
         if (!res.ok) continue;
-        const list = await res.json();
+        list = await res.json();
         this._results = (Array.isArray(list) ? list : [])
           .filter(x => (x.url_resolved || x.url || '').startsWith('http'))
           .map(x => ({
@@ -590,7 +600,7 @@ class RadioGridConfigCard extends HTMLElement {
         return;
       } catch (e) { /* nächster Server */ }
     }
-    box.innerHTML = '<div class="msg">Suche fehlgeschlagen (Radio-Browser nicht erreichbar).</div>';
+    box.innerHTML = '<div class="msg">Suche fehlgeschlagen (Radio-Browser gerade nicht erreichbar – bitte nochmal versuchen).</div>';
   }
 
   _renderResults() {
