@@ -10,7 +10,7 @@
  * Benutzer gleich; sonst im Frontend-User-Storage (pro Benutzer getrennt).
  */
 
-const RADIOGRID_VERSION = '2.2.1';
+const RADIOGRID_VERSION = '2.3.0';
 console.info(
   `%c RADIOGRID-CARD %c v${RADIOGRID_VERSION} `,
   'color:#fff;background:#ff1adf;font-weight:700;border-radius:3px 0 0 3px',
@@ -37,8 +37,11 @@ const slug = s => String(s || '').toLowerCase().trim()
 /* Speicher-Backend: mit der optionalen Integration "radiogrid" liegt der Pool
    serverseitig und ist für ALLE HA-Benutzer gleich. Ohne die Integration wird
    der bisherige (pro Benutzer getrennte) Frontend-User-Storage genutzt.
-   Erkennung einmalig, Ergebnis gecacht. */
+   Erkennung wird gecacht; resetBackend() erzwingt eine Neu-Erkennung – wichtig
+   nach einem HA-Neustart, wenn das Frontend evtl. schneller wieder da ist als
+   die Integration (sonst würde fälschlich dauerhaft "user" gemerkt). */
 let _rgBackend = null; // null = noch nicht geprüft, 'shared' | 'user'
+function resetBackend() { _rgBackend = null; }
 async function storeBackend(hass) {
   if (_rgBackend) return _rgBackend;
   try {
@@ -101,8 +104,29 @@ class RadioGridCard extends HTMLElement {
   static getStubConfig() { return { entity: '', card_id: '', title: '' }; }
   getCardSize() { return 8; }
 
-  connectedCallback() { window.addEventListener(STORE_EVT, this._onStore); }
-  disconnectedCallback() { window.removeEventListener(STORE_EVT, this._onStore); }
+  connectedCallback() {
+    window.addEventListener(STORE_EVT, this._onStore);
+    if (this._hass) this._subscribeConn(this._hass);
+  }
+  disconnectedCallback() {
+    window.removeEventListener(STORE_EVT, this._onStore);
+    clearTimeout(this._retryT);
+    if (this._connUnsub) { this._connUnsub(); this._connUnsub = null; }
+  }
+
+  /* Bei jedem (Wieder-)Verbinden der WebSocket – z.B. nach HA-Neustart – den
+     Pool frisch laden. Die Verbindung selbst bleibt dasselbe Objekt und feuert
+     "ready" nach jedem Reconnect. */
+  _subscribeConn(hass) {
+    if (this._connUnsub || !hass || !hass.connection) return;
+    const conn = hass.connection;
+    const onReady = () => this._reload();
+    try { conn.addEventListener('ready', onReady); }
+    catch (e) { return; }
+    this._connUnsub = () => { try { conn.removeEventListener('ready', onReady); } catch (e) {} };
+  }
+
+  _reload() { resetBackend(); this._load(1); }
 
   setConfig(config) {
     if (!config || !config.entity) {
@@ -118,14 +142,24 @@ class RadioGridCard extends HTMLElement {
     const first = !this._hass;
     this._hass = hass;
     if (!this._built) this._build();
-    if (first) this._load();
+    if (first) { this._subscribeConn(hass); this._load(); }
     this._update();
   }
 
-  async _load() {
-    this._store = await storeLoad(this._hass);
+  async _load(attempt = 0) {
+    if (attempt > 0) resetBackend();
+    const store = await storeLoad(this._hass);
+    this._store = store;
     this._renderFilters();
     this._renderGrid();
+    // Direkt nach einem HA-Neustart ist der (geteilte) Speicher evtl. noch nicht
+    // bereit und liefert leer. Dann ein paar Mal sanft nachfassen, statt den
+    // Nutzer zum manuellen Reload zu zwingen.
+    clearTimeout(this._retryT);
+    const empty = !store.stations || !store.stations.length;
+    if (empty && attempt < 3) {
+      this._retryT = setTimeout(() => this._load(attempt + 1), 1500 * (attempt + 1));
+    }
   }
 
   // Inline-Liste (Alt-Config) hat Vorrang, sonst zentraler Pool nach Karten-Zuordnung.
@@ -466,11 +500,41 @@ class RadioGridConfigCard extends HTMLElement {
   setConfig(config) { this._config = config || {}; }
   getCardSize() { return 12; }
 
+  connectedCallback() { if (this._hass) this._subscribeConn(this._hass); }
+  disconnectedCallback() {
+    clearTimeout(this._retryT);
+    if (this._connUnsub) { this._connUnsub(); this._connUnsub = null; }
+  }
+
+  _subscribeConn(hass) {
+    if (this._connUnsub || !hass || !hass.connection) return;
+    const conn = hass.connection;
+    const onReady = () => this._reload();
+    try { conn.addEventListener('ready', onReady); }
+    catch (e) { return; }
+    this._connUnsub = () => { try { conn.removeEventListener('ready', onReady); } catch (e) {} };
+  }
+
+  // Nach Reconnect neu laden – aber nicht, während gerade ein Sender bearbeitet wird.
+  _reload() { if (this._editing) return; resetBackend(); this._load(1); }
+
+  async _load(attempt = 0) {
+    if (attempt > 0) resetBackend();
+    const store = await storeLoad(this._hass);
+    this._store = store;
+    this._renderAll();
+    clearTimeout(this._retryT);
+    const empty = !store.stations || !store.stations.length;
+    if (empty && attempt < 3 && !this._editing) {
+      this._retryT = setTimeout(() => this._load(attempt + 1), 1500 * (attempt + 1));
+    }
+  }
+
   set hass(hass) {
     const first = !this._hass;
     this._hass = hass;
     if (!this._built) this._build();
-    if (first) storeLoad(hass).then(s => { this._store = s; this._renderAll(); });
+    if (first) { this._subscribeConn(hass); this._load(); }
   }
 
   async _save() {
