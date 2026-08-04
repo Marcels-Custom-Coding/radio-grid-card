@@ -10,7 +10,7 @@
  * Benutzer gleich; sonst im Frontend-User-Storage (pro Benutzer getrennt).
  */
 
-const RADIOGRID_VERSION = '2.3.0';
+const RADIOGRID_VERSION = '2.3.1';
 console.info(
   `%c RADIOGRID-CARD %c v${RADIOGRID_VERSION} `,
   'color:#fff;background:#ff1adf;font-weight:700;border-radius:3px 0 0 3px',
@@ -85,6 +85,9 @@ function esc(s) {
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 const stationUrl = s => (s && (s.url || s.stream || s.media_id)) || '';
+// Ist die optionale Integration im HA fertig geladen? (steht in hass.config.components)
+const integrationReady = h =>
+  !!(h && h.config && Array.isArray(h.config.components) && h.config.components.includes('radiogrid'));
 
 /* ══════════════════════════════════════════════════════════════
    ANZEIGE-KARTE
@@ -140,9 +143,16 @@ class RadioGridCard extends HTMLElement {
 
   set hass(hass) {
     const first = !this._hass;
+    const prev = this._hass;
     this._hass = hass;
     if (!this._built) this._build();
     if (first) { this._subscribeConn(hass); this._load(); }
+    // Integration gerade fertig hochgefahren (nach HA-Neustart)? Dann Pool nachladen,
+    // solange er noch leer ist – zuverlässiger als ein fixes Zeitfenster.
+    else if (!integrationReady(prev) && integrationReady(hass) &&
+             (!this._store.stations || !this._store.stations.length)) {
+      this._reload();
+    }
     this._update();
   }
 
@@ -532,9 +542,14 @@ class RadioGridConfigCard extends HTMLElement {
 
   set hass(hass) {
     const first = !this._hass;
+    const prev = this._hass;
     this._hass = hass;
     if (!this._built) this._build();
     if (first) { this._subscribeConn(hass); this._load(); }
+    else if (!this._editing && !integrationReady(prev) && integrationReady(hass) &&
+             (!this._store.stations || !this._store.stations.length)) {
+      this._reload();
+    }
   }
 
   async _save() {
